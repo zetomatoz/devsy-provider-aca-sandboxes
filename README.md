@@ -6,8 +6,7 @@ HTTPS/WebSocket. No inbound SSH port or public sandbox app port is required.
 
 [![Start the .NET workspace](https://img.shields.io/badge/Devsy-Start%20.NET%20workspace-512BD4?logo=dotnet&logoColor=white)](#start-the-workspace)
 
-The button opens the launch instructions. A GitHub README cannot safely execute a
-local CLI command; the executable launcher is `scripts/up.sh`.
+The button opens the setup instructions.
 
 Verified in Azure DEV: a .NET 10 workspace, the VS Code editor, and the Agents
 window's remote Agent Host all ran through the Devsy proxy with no sandbox ports
@@ -16,43 +15,53 @@ workspace. See the [validation record](docs/validation.md).
 
 ## Start the workspace
 
-Prerequisites: Python 3.10+, Azure CLI, the official `aca` CLI, Devsy, and VS Code.
-Keep this checkout in a durable folder: the registered provider uses its Python
-virtual environment by absolute path. macOS and Linux are the initial targets.
-
-Install Devsy from its [official instructions](https://devsy.sh/docs/getting-started/install).
-Install the separate ACA CLI from [Microsoft](https://github.com/microsoft/azure-container-apps/tree/main/aca-cli/preview):
+With an active Azure subscription, clone this repo or [download the ZIP](https://github.com/zetomatoz/devsy-provider-aca-sandboxes/archive/refs/heads/main.zip)
+and extract it. Open a terminal in the project folder and run:
 
 ```sh
-curl -fsSL https://aka.ms/aca-cli-install | sh
-aca --version
+bash scripts/quickstart.sh
 ```
 
-This same install path is also used inside sandboxes and containers for
-agent-driven self-installs.
+The quickstart installs missing tools, including Python, Azure CLI, Devsy, the
+ACA Sandbox CLI, and VS Code with Remote SSH. It prompts for Azure sign-in if
+needed, provisions the Azure resources, and opens the .NET workspace in VS Code.
+Docker and .NET run inside the sandbox.
 
-Authenticate to your Entra tenant and select your development subscription. If a
-real token request succeeds, skip sign-in; `az account show` alone can return
-stale cached account data.
+Automatic tool installation supports Apple Silicon macOS and x86-64 Ubuntu
+22.04, 24.04, and 26.04 or Debian 12. Package installation may ask for local
+administrator access. Keep the checkout in a durable folder because Devsy uses
+its Python virtual environment by absolute path.
 
-```sh
-az account get-access-token --resource https://management.azure.com --output none || az login
-az account set --subscription YOUR_DEV_SUBSCRIPTION_ID
-./scripts/up.sh
-```
+Use a Microsoft Entra user with permission to create Azure resources and assign
+roles, such as a subscription Owner. `--subscription ID_OR_NAME` selects a
+specific subscription. On a terminal-only machine, including x86-64 Ubuntu in
+WSL2, use `bash scripts/quickstart.sh --headless --device-code`.
 
-The launcher creates `rg-devsy-aca` and `devsy-sandboxes` in `eastus2`, grants the
-signed-in user the sandbox Data Owner role on the new group, installs/registers
-this provider, starts the included .NET example as `dotnet-aca`, and opens VS Code.
-It leaves an existing Devsy default provider selected. Provisioning resources and
-running sandboxes incur Azure charges; suspend preserves state and still uses
-storage.
+The script creates `rg-devsy-aca` in `eastus2` and deploys [the Bicep template](infra/main.bicep)
+to create `devsy-sandboxes` and grant the signed-in user **Container Apps
+SandboxGroup Data Owner** on that sandbox group. Devsy then creates `dotnet-aca`.
+The sandbox suspends after five minutes of Azure-detected inactivity by default.
+Running compute and retained storage follow [Azure's pricing](https://sandboxes.azure.com/docs/sandboxes/cost).
 
 Override infrastructure defaults with `ACA_SUBSCRIPTION_ID`, `ACA_RESOURCE_GROUP`,
-`ACA_SANDBOX_GROUP`, and `ACA_LOCATION`. Creating the group and role assignment
-requires appropriate Azure permissions. Shared users need their own group-scoped
-**Container Apps SandboxGroup Data Owner** assignment; an existing group does not
-automatically grant another developer access.
+`ACA_SANDBOX_GROUP`, and `ACA_LOCATION`. For multiple simultaneous setups, use a
+distinct `ACA_PROVIDER_NAME` and `ACA_WORKSPACE_NAME` for each target.
+
+The launcher prints the smoke test command. If Devsy was just installed, add
+`$HOME/.local/bin` to your shell's `PATH` first:
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+devsy workspace ssh --start-services=false --agent-forwarding=false --command 'bash ./smoke.sh' dotnet-aca
+```
+
+Use `--with-copilot` to install the optional standalone Copilot CLI on your
+computer. Hosted Copilot requires a separate GitHub account with Copilot access.
+The .NET sample and smoke test use your Azure sign-in. See [Copilot authentication](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli).
+
+To install just the workstation tools, use `scripts/install-tools.sh`. Use
+`scripts/bootstrap-azure.sh` for Azure provisioning after signing in, or
+`scripts/up.sh` to launch with your existing toolchain.
 
 For the upstream Microsoft .NET example instead:
 
@@ -129,7 +138,8 @@ workspace deletes its sandbox; commit/export valuable work first. Group teardown
 is a separate administrative operation:
 
 ```sh
-aca sandboxgroup delete --name devsy-sandboxes --yes
+aca sandboxgroup delete --subscription YOUR_DEV_SUBSCRIPTION_ID \
+  --resource-group rg-devsy-aca --name devsy-sandboxes --yes
 ```
 
 See [architecture](docs/architecture.md), [security boundaries](docs/security.md),
