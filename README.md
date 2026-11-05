@@ -32,10 +32,19 @@ Automatic tool installation supports Apple Silicon macOS and x86-64 Ubuntu
 administrator access. Keep the checkout in a durable folder because Devsy uses
 its Python virtual environment by absolute path.
 
+On **Windows x64**, open PowerShell in the project folder and run:
+
+```powershell
+.\scripts\quickstart.ps1 -Subscription 'YOUR_SUBSCRIPTION_ID'
+```
+
+This runs the headless quickstart in Ubuntu on WSL2. See [Windows setup](docs/windows.md)
+for installing WSL, optional Copilot CLI, and running the smoke test.
+
 Use a Microsoft Entra user with permission to create Azure resources and assign
 roles, such as a subscription Owner. `--subscription ID_OR_NAME` selects a
-specific subscription. On a terminal-only machine, including x86-64 Ubuntu in
-WSL2, use `bash scripts/quickstart.sh --headless --device-code`.
+specific subscription on macOS and Linux. On a terminal-only machine use
+`bash scripts/quickstart.sh --headless --device-code`.
 
 The script creates `rg-devsy-aca` in `eastus2` and deploys [the Bicep template](infra/main.bicep)
 to create `devsy-sandboxes` and grant the signed-in user **Container Apps
@@ -153,6 +162,10 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e . pytest
 .venv/bin/python -m pytest
 ```
+
+See [testing the quickstart](docs/testing.md) for the credential-free CI checks,
+Azure's Bicep validation, and a disposable live test you can point at a test
+subscription.
 
 Primary references: [Devsy provider contract](https://devsy.sh/docs/developing-providers/quickstart),
 [Microsoft Sandbox SDK](https://pypi.org/project/azure-containerapps-sandbox/), and

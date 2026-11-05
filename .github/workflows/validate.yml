@@ -1,0 +1,56 @@
+name: Validate quickstart
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu:
+    name: Clean Ubuntu toolchain and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install and test in an empty Ubuntu container
+        shell: bash
+        run: |
+          git archive HEAD | docker run --rm -i ubuntu:24.04 bash -euo pipefail -c '
+            mkdir /repo
+            cd /repo
+            tar -xf -
+            for script in scripts/*.sh examples/dotnet/smoke.sh; do bash -n "$script"; done
+            bash scripts/install-tools.sh
+            export PATH="$HOME/.local/bin:$PATH"
+            bash scripts/install-tools.sh --check
+            python3 -m venv .venv
+            .venv/bin/python -m pip install . pytest
+            .venv/bin/python -m pytest
+            az bicep install
+            az bicep build --file infra/main.bicep --stdout > /tmp/devsy-aca-template.json
+          '
+
+  windows:
+    name: Windows PowerShell syntax
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Parse the launcher with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          $path = (Resolve-Path .\scripts\quickstart.ps1).Path
+          [void][System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
+          if ($errors) { throw ($errors -join [Environment]::NewLine) }
+          & $path -Help
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
