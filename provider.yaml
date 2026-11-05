@@ -28,8 +28,8 @@ options:
     description: Sandbox memory allocation.
     default: 4096Mi
   ACA_AUTO_SUSPEND_SECONDS:
-    description: Azure sandbox idle auto-suspend timeout in seconds.
-    default: "1800"
+    description: Seconds of Azure inactivity before suspension (minimum 60).
+    default: "300"
   ACA_AZ_CLI:
     description: Absolute path to the Azure CLI executable named az. Set by scripts/install-provider.sh for GUI clients.
   ACA_PROVIDER_PYTHON:

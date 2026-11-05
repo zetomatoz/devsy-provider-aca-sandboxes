@@ -17,11 +17,16 @@ Tested on November 4, 2026, against the `DEV` Azure subscription, resource group
 | Remote agent task | Copilot completed a session in the Agents window. With one-time approval it ran `pwd && dotnet --version && bash ./smoke.sh` in `/workspaces/dotnet-aca`: SDK `10.0.403`, zero build warnings or errors, and both HTTP assertions passed. |
 | Fresh ACA profile | An independent workspace installed both sandbox CA roots from the read-only mount, fetched the VS Code update endpoint over verified HTTPS, and passed the .NET smoke test. |
 | Lifecycle | Devsy stopped and resumed that workspace in the same sandbox and container; a marker file persisted. Devsy delete removed the disposable sandbox. |
-| Unit tests | Eight tests passed for lifecycle mapping, creation and cleanup, byte transport, stderr, EOF, and exit status. |
+| Unit tests | Nine tests passed for lifecycle mapping, idle policy updates, creation and cleanup, byte transport, stderr, EOF, and exit status. |
 
 The `dotnet-aca` workspace and its sandbox group were left available. The two
 disposable verification sandboxes were removed. Self-hosted model configuration
 is documented separately; no BYOK inference was run.
+
+In a separate idle-policy check, Azure saved the 300-second creation default and
+then accepted a 60-second override through the provider. With no sessions open,
+the sandbox reported `Stopped` with reason `Idle` after about 91 seconds,
+including the time to finish stopping and observe it. The test sandbox was removed.
 
 ## First connection troubleshooting
 

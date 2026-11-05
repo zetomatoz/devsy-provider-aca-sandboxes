@@ -9,7 +9,13 @@ import sys
 from dataclasses import dataclass
 from importlib.resources import files
 
-from azure.containerapps.sandbox import EgressPolicy, SandboxGroupClient, endpoint_for_region
+from azure.containerapps.sandbox import (
+    AutoSuspendPolicy,
+    EgressPolicy,
+    LifecyclePolicy,
+    SandboxGroupClient,
+    endpoint_for_region,
+)
 from azure.core.exceptions import ResourceNotFoundError
 from azure.identity import AzureCliCredential
 
@@ -25,7 +31,7 @@ class Config:
     disk: str = "ubuntu"
     cpu: str = "2000m"
     memory: str = "4096Mi"
-    auto_suspend_seconds: int = 1800
+    auto_suspend_seconds: int = 300
 
     @classmethod
     def from_env(cls):
@@ -102,6 +108,20 @@ class Provider:
                 print(result.stderr, end="", file=sys.stderr)
             raise RuntimeError(f"Sandbox Docker bootstrap failed with exit code {result.exit_code}")
 
+    def ensure_auto_suspend(self, sandbox):
+        lifecycle = sandbox.get().lifecycle or LifecyclePolicy()
+        current = lifecycle.auto_suspend or AutoSuspendPolicy()
+        desired = AutoSuspendPolicy(enabled=True, interval=self.config.auto_suspend_seconds, mode=current.mode)
+        if current == desired:
+            return
+
+        # Retain any suspend mode and auto-delete policy configured in Azure.
+        sandbox.set_lifecycle_policy(LifecyclePolicy(auto_suspend=desired, auto_delete=lifecycle.auto_delete))
+        saved_lifecycle = sandbox.get().lifecycle
+        saved = saved_lifecycle.auto_suspend if saved_lifecycle else None
+        if not saved or not saved.enabled or saved.interval != desired.interval:
+            raise RuntimeError(f"Azure did not apply the {desired.interval}-second idle suspend policy")
+
     def create(self, machine_id: str):
         sandbox = self.find(machine_id)
         created = sandbox is None
@@ -114,9 +134,10 @@ class Provider:
                 # deliberately Allow for this proof; ingress ports remain empty.
                 egress_policy=EgressPolicy(default_action="Allow"), ports=[],
             ).result()
-        else:
-            sandbox.ensure_running()
         try:
+            self.ensure_auto_suspend(sandbox)
+            if not created:
+                sandbox.ensure_running()
             self.bootstrap(sandbox)
         except (Exception, KeyboardInterrupt):
             if created:
@@ -142,6 +163,7 @@ class Provider:
         sandbox = self.find(machine_id)
         if sandbox is None:
             raise RuntimeError("Sandbox does not exist; create the Devsy workspace first")
+        self.ensure_auto_suspend(sandbox)
         sandbox.ensure_running()
         self.bootstrap(sandbox)
 
@@ -159,5 +181,6 @@ class Provider:
         sandbox = self.find(machine_id)
         if sandbox is None:
             raise RuntimeError("Devsy sandbox was not found")
+        self.ensure_auto_suspend(sandbox)
         sandbox.ensure_running()
         return run_command(self.config, sandbox.sandbox_id, self.credential, command)

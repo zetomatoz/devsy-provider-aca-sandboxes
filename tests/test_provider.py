@@ -1,6 +1,9 @@
 import unittest
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
+
+from azure.containerapps.sandbox import AutoDeletePolicy, AutoSuspendPolicy, LifecyclePolicy
 
 from devsy_aca.provider import Config, Provider, devsy_status, machine_label
 
@@ -13,10 +16,12 @@ class ProviderTests(unittest.TestCase):
                                  client=self.group, credential=self.credential)
         self.sandbox = Mock(sandbox_id="sandbox-id")
         self.group.get_sandbox_client.return_value = self.sandbox
+        self.set_sandbox("Running")
 
     def set_sandbox(self, state):
         self.group.list_sandboxes.return_value = [SimpleNamespace(id="sandbox-id", state=state)]
-        self.sandbox.get.return_value = SimpleNamespace(state=state)
+        lifecycle = LifecyclePolicy(auto_suspend=AutoSuspendPolicy(enabled=True, interval=300, mode="Memory"))
+        self.sandbox.get.return_value = SimpleNamespace(state=state, lifecycle=lifecycle)
 
     def test_devsy_lifecycle_status_contract(self):
         self.group.list_sandboxes.return_value = []
@@ -38,7 +43,9 @@ class ProviderTests(unittest.TestCase):
         self.group.list_sandboxes.assert_called_once_with(labels={"devsy-machine": machine_label("machine-a")})
         options = self.group.begin_create_sandbox.call_args.kwargs
         self.assertEqual(options["ports"], [])
+        self.assertEqual(options["auto_suspend_seconds"], 300)
         self.assertEqual(options["labels"]["devsy-machine"], machine_label("machine-a"))
+        self.sandbox.set_lifecycle_policy.assert_not_called()
         bootstrap.assert_called_once_with(self.sandbox)
 
     def test_create_reuses_existing_workspace(self):
@@ -75,3 +82,13 @@ class ProviderTests(unittest.TestCase):
         with patch("devsy_aca.provider.run_command", return_value=23) as run:
             self.assertEqual(self.provider.command("machine-a", command), 23)
         run.assert_called_once_with(self.provider.config, "sandbox-id", self.credential, command)
+
+    def test_connect_applies_changed_timeout_to_running_sandbox(self):
+        self.provider.config = replace(self.provider.config, auto_suspend_seconds=60)
+        auto_delete = AutoDeletePolicy(enabled=True, delete_interval_seconds=86400)
+        existing = LifecyclePolicy(AutoSuspendPolicy(enabled=False, interval=1800, mode="Disk"), auto_delete)
+        desired = LifecyclePolicy(AutoSuspendPolicy(enabled=True, interval=60, mode="Disk"), auto_delete)
+        self.sandbox.get.side_effect = [SimpleNamespace(lifecycle=existing), SimpleNamespace(lifecycle=desired)]
+        with patch("devsy_aca.provider.run_command", return_value=0):
+            self.assertEqual(self.provider.command("machine-a", "true"), 0)
+        self.sandbox.set_lifecycle_policy.assert_called_once_with(desired)

@@ -98,6 +98,26 @@ No model endpoint or model credentials are bundled.
 
 ## Lifecycle
 
+Azure automatically suspends a sandbox after **five minutes of inactivity** by
+default. Change the timeout in seconds (minimum 60) when launching or registering
+the provider:
+
+```sh
+ACA_AUTO_SUSPEND_SECONDS=120 ./scripts/install-provider.sh
+```
+
+Use `300` to update an older installation that saved the previous 30-minute
+default. The provider checks the policy on creation and on the next
+workspace start or connection, and applies the configured timeout if it differs.
+
+Azure counts open shells, API execution, incoming traffic, and file operations
+as activity. Disconnect the remote editor and Agents window when you finish so
+the sandbox can become idle. A stopped sandbox incurs no CPU or memory charges.
+Retained snapshots follow [Azure's storage pricing](https://sandboxes.azure.com/docs/sandboxes/cost).
+See [what Azure counts as idle](https://learn.microsoft.com/en-us/azure/container-apps/sandboxes-overview#lifecycle-states).
+
+To stop immediately, resume, or delete a workspace:
+
 ```sh
 devsy workspace stop dotnet-aca
 devsy workspace up dotnet-aca --ide vscode
