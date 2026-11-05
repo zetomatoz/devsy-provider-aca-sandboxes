@@ -69,6 +69,14 @@ report_tool() {
   fi
 }
 
+linux_icu_ready() {
+  local library
+  for library in /usr/lib/x86_64-linux-gnu/libicuuc.so.* /lib/x86_64-linux-gnu/libicuuc.so.*; do
+    if [[ -f "$library" ]]; then return 0; fi
+  done
+  return 1
+}
+
 report_tools() {
   local result=0
   if [[ $need_python == true ]]; then
@@ -78,6 +86,10 @@ report_tools() {
     report_tool Python "$python_bin" --version || result=1
   fi
   report_tool 'Azure CLI' az version --query '"azure-cli"' --output tsv || result=1
+  if [[ $host_os == Linux ]] && ! linux_icu_ready; then
+    printf '  Bicep runtime: ICU is missing; run the tool installer without --check\n' >&2
+    result=1
+  fi
   report_tool Devsy "$devsy_bin" --version || result=1
   report_tool 'ACA CLI' aca --version || result=1
   if ! command -v ssh >/dev/null 2>&1; then
@@ -136,16 +148,23 @@ install_linux_packages() {
   fi
   [[ $need_python == false ]] || packages+=(python3 python3-venv)
   command -v ssh >/dev/null 2>&1 || packages+=(openssh-client)
-  if ((${#packages[@]} == 0)); then return; fi
+  local need_icu=false
+  linux_icu_ready || need_icu=true
+  if ((${#packages[@]} == 0)) && [[ $need_icu == false ]]; then return; fi
 
-  local ID VERSION_CODENAME
+  local ID VERSION_CODENAME icu_package
   # This OS-owned file defines the distro's apt suite.
   [[ -r /etc/os-release ]] || fail 'Cannot identify this Linux distribution. Install the missing tools with your distribution package manager.'
   . /etc/os-release
   case "${ID:-}:${VERSION_CODENAME:-}" in
-    ubuntu:jammy|ubuntu:noble|ubuntu:resolute|debian:bookworm) ;;
-    *) fail 'Automatic package setup requires Ubuntu 22.04/24.04/26.04 or Debian 12. Install Azure CLI, curl, OpenSSH, and Python 3.10+ with venv for your distribution, then rerun this installer. Azure CLI guide: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux' ;;
+    ubuntu:jammy) icu_package=libicu70 ;;
+    ubuntu:noble) icu_package=libicu74 ;;
+    ubuntu:resolute) icu_package=libicu78 ;;
+    debian:bookworm) icu_package=libicu72 ;;
+    *) fail 'Automatic package setup requires Ubuntu 22.04/24.04/26.04 or Debian 12. Install Azure CLI, curl, OpenSSH, Python 3.10+ with venv, and the ICU runtime for your distribution, then rerun this installer. Azure CLI guide: https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux' ;;
   esac
+  # Azure CLI downloads a standalone Bicep binary, which still needs ICU.
+  [[ $need_icu == false ]] || packages+=("$icu_package")
   if ((EUID != 0)); then
     command -v sudo >/dev/null 2>&1 || fail 'Installing Linux packages requires sudo or root access.'
   fi
