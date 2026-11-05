@@ -1,0 +1,55 @@
+name: aca-sandboxes
+version: v0.1.0
+description: Devsy workspaces in Azure Container Apps Sandboxes over authenticated HTTPS.
+home: https://github.com/zetomatoz/devsy-provider-aca-sandboxes
+options:
+  ACA_SUBSCRIPTION_ID:
+    description: Azure subscription ID containing the sandbox group.
+    required: true
+  ACA_RESOURCE_GROUP:
+    description: Azure resource group containing the sandbox group.
+    default: rg-devsy-aca
+    required: true
+  ACA_SANDBOX_GROUP:
+    description: Azure Container Apps SandboxGroup name.
+    default: devsy-sandboxes
+    required: true
+  ACA_LOCATION:
+    description: SandboxGroup region.
+    default: eastus2
+    required: true
+  ACA_DISK:
+    description: Sandbox disk image. The provider bootstraps Docker inside this Linux sandbox.
+    default: ubuntu
+  ACA_CPU:
+    description: Sandbox CPU allocation, for example 2000m for two cores.
+    default: 2000m
+  ACA_MEMORY:
+    description: Sandbox memory allocation.
+    default: 4096Mi
+  ACA_AUTO_SUSPEND_SECONDS:
+    description: Azure sandbox idle auto-suspend timeout in seconds.
+    default: "1800"
+  ACA_AZ_CLI:
+    description: Absolute path to the Azure CLI executable named az. Set by scripts/install-provider.sh for GUI clients.
+  ACA_PROVIDER_PYTHON:
+    description: Python interpreter with this provider installed. scripts/install-provider.sh sets an absolute path.
+    default: python3
+    required: true
+agent:
+  path: /opt/devsy/agent
+  local: false
+  driver: docker
+  injectGitCredentials: false
+  injectDockerCredentials: false
+  docker:
+    install: false
+    configureDaemon: false
+exec:
+  init: '"${ACA_PROVIDER_PYTHON}" -I -m devsy_aca init'
+  create: '"${ACA_PROVIDER_PYTHON}" -I -m devsy_aca create'
+  start: '"${ACA_PROVIDER_PYTHON}" -I -m devsy_aca start'
+  stop: '"${ACA_PROVIDER_PYTHON}" -I -m devsy_aca stop'
+  delete: '"${ACA_PROVIDER_PYTHON}" -I -m devsy_aca delete'
+  status: '"${ACA_PROVIDER_PYTHON}" -I -m devsy_aca status'
+  command: '"${ACA_PROVIDER_PYTHON}" -I -m devsy_aca command'

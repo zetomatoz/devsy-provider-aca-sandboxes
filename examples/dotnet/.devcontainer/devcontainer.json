@@ -1,0 +1,14 @@
+{
+  "name": "Devsy ACA .NET 10 proof",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:2-10.0-noble",
+  "remoteUser": "vscode",
+  "forwardPorts": [5080],
+  "portsAttributes": {
+    "5080": { "label": "Sandbox .NET example", "onAutoForward": "notify" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-dotnettools.csdevkit"]
+    }
+  }
+}

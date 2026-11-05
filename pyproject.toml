@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "devsy-provider-aca-sandboxes"
+version = "0.1.0"
+description = "Devsy provider for Azure Container Apps Sandboxes with HTTPS exec transport"
+requires-python = ">=3.10"
+dependencies = [
+    "azure-containerapps-sandbox==0.1.0b4",
+    "azure-identity>=1.25,<2",
+    "websockets>=15,<17",
+    "truststore>=0.10,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["devsy_aca*"]
+
+[tool.setuptools.package-data]
+devsy_aca = ["bootstrap.sh"]

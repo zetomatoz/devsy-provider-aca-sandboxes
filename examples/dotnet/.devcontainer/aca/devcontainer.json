@@ -1,0 +1,21 @@
+{
+  "name": "Devsy ACA .NET 10 proof",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:2-10.0-noble",
+  "remoteUser": "vscode",
+  "mounts": [
+    "type=bind,source=/usr/local/share/ca-certificates/adc-proxy-ca.crt,target=/opt/aca-egress-ca.pem,readonly"
+  ],
+  "containerEnv": {
+    "NODE_EXTRA_CA_CERTS": "/opt/aca-egress-ca.pem"
+  },
+  "postCreateCommand": "sudo bash .devcontainer/aca/trust-aca-ca.sh",
+  "forwardPorts": [5080],
+  "portsAttributes": {
+    "5080": { "label": "Sandbox .NET example", "onAutoForward": "notify" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-dotnettools.csdevkit"]
+    }
+  }
+}
